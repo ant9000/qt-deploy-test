@@ -1,0 +1,40 @@
+name: binary-builder
+run-name: binary-builder
+on: [workflow_dispatch]
+env:
+  PYAPP_PROJECT_NAME: qt-deploy-test
+  PYAPP_PROJECT_VERSION: 0.0.1
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        runs-on: [ubuntu-20.04, macos-13, macos-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: compile application
+        run: |
+          curl https://github.com/ofek/pyapp/releases/latest/download/source.tar.gz -Lo pyapp-source.tar.gz
+          tar xf pyapp-source.tar.gz
+          mv pyapp-v* pyapp-latest
+          cd pyapp-latest
+          cargo build --release
+          cp target/release/pyapp ../${{ env.PYAPP_PROJECT_NAME }}
+        env:
+          PYAPP_PROJECT_DEPENDENCY_FILE: ../requirements.txt
+          PYAPP_EXEC_SCRIPT: ../qt_app.py
+          PYAPP_IS_GUI: 1
+          PYAPP_DISTRIBUTION_EMBED: 1
+          PYAPP_FULL_ISOLATION: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ env.PYAPP_PROJECT_NAME }}
+          if-no-files-found: error
