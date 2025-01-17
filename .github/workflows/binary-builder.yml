@@ -19,26 +19,20 @@ jobs:
           fetch-depth: 0
       - name: install rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Set conditional environment variables - non Windows
+      - name: conditional variables
         run: |
-          echo "move=mv" >> "${GITHUB_ENV}"
-          echo "ext=" >> "${GITHUB_ENV}"
-          echo "artifact=${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}" >> "${GITHUB_ENV}"
-        if: runner.os != 'Windows'
-      - name: Set conditional environment variables - Windows
-        run: |
-          echo "move=move" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "ext=.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "artifact=${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}" | Out-File -FilePath $env:GITHUB_ENV -Append
-        if: runner.os == 'Windows'
+          echo "artifact=${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}" >> "$GITHUB_ENV"
+          echo "ext=${{ runner.os == 'Windows' && '.exe' || '' }}" >> "$GITHUB_ENV"
+        shell: bash
       - name: compile application
         run: |
           curl https://github.com/ofek/pyapp/releases/latest/download/source.tar.gz -Lo pyapp-source.tar.gz
           tar xf pyapp-source.tar.gz
-          ${{ env.move }} pyapp-v* pyapp-latest
+          mv pyapp-v* pyapp-latest
           cd pyapp-latest
           cargo build --release
-          ${{ env.move }} target/release/pyapp${{ env.ext }} ../${{ env.artifact }}${{ env.ext }}
+          mv target/release/pyapp${ext} ../${artifact}${ext}
+        shell: bash
         env:
           PYAPP_PROJECT_DEPENDENCY_FILE: ../requirements.txt
           PYAPP_EXEC_SCRIPT: ../qt_app.py
