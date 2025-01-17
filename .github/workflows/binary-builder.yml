@@ -9,7 +9,7 @@ jobs:
     name: Build
     strategy:
       matrix:
-        runs-on: [ubuntu-20.04, macos-13, macos-latest]
+        runs-on: [ubuntu-20.04, macos-13, macos-latest, windows-2019]
       fail-fast: false
     runs-on: ${{ matrix.runs-on }}
     steps:
@@ -19,14 +19,26 @@ jobs:
           fetch-depth: 0
       - name: install rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Set conditional environment variables - non Windows
+        run: |
+          echo "move=mv" >> "${GITHUB_ENV}"
+          echo "ext=" >> "${GITHUB_ENV}"
+          echo "artifact=${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}" >> "${GITHUB_ENV}"
+        if: runner.os != 'Windows'
+      - name: Set conditional environment variables - Windows
+        run: |
+          echo "move=move" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "ext=.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "artifact=${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+        if: runner.os == 'Windows'
       - name: compile application
         run: |
           curl https://github.com/ofek/pyapp/releases/latest/download/source.tar.gz -Lo pyapp-source.tar.gz
           tar xf pyapp-source.tar.gz
-          mv pyapp-v* pyapp-latest
+          ${{ env.move }} pyapp-v* pyapp-latest
           cd pyapp-latest
           cargo build --release
-          cp target/release/pyapp ../${{ env.PYAPP_PROJECT_NAME }}
+          ${{ env.move }} target/release/pyapp${{ env.ext }} ../${{ env.artifact }}${{ env.ext }}
         env:
           PYAPP_PROJECT_DEPENDENCY_FILE: ../requirements.txt
           PYAPP_EXEC_SCRIPT: ../qt_app.py
@@ -35,6 +47,6 @@ jobs:
           PYAPP_FULL_ISOLATION: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PYAPP_PROJECT_NAME }}-${{ env.PYAPP_PROJECT_VERSION }}-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ env.PYAPP_PROJECT_NAME }}
+          name: ${{ env.artifact }}
+          path: ${{ env.artifact }}${{ env.ext }}
           if-no-files-found: error
